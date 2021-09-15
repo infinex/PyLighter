@@ -141,10 +141,11 @@ def display_core(instantiated_core):
 
 
 def preload_core(obj, **kwargs):
-    core_display, char_buttons, labels_buttons = instantiate_core(**kwargs)
+    core_display, char_buttons, labels_buttons, toggle_button = instantiate_core(**kwargs)
     obj["core_display"] = core_display
     obj["char_buttons"] = char_buttons
     obj["labels_buttons"] = labels_buttons
+    obj["toggle_button"] = toggle_button
 
 
 def instantiate_core(
@@ -155,12 +156,14 @@ def instantiate_core(
     selected_labeliser,
     shortcuts_displays_helpers,
     label_on_click,
+    label_on_toggle
+
 ):
     """
     Instantiate the core elements (ie, the toolbox, the document and the chunk area).
     """
 
-    document_display, char_buttons, labels_buttons = instantiate_document(
+    document_display, char_buttons, labels_buttons, toggle_button = instantiate_document(
         document,
         char_params,
         char_on_click,
@@ -168,6 +171,7 @@ def instantiate_core(
         selected_labeliser,
         shortcuts_displays_helpers,
         label_on_click,
+        label_on_toggle
     )
     chunks_area_display = instantiate_chunks_area(labels_names)
 
@@ -179,12 +183,10 @@ def instantiate_core(
         ),
     )
 
-    return core_display, char_buttons, labels_buttons
+    return core_display, char_buttons, labels_buttons, toggle_button
 
 
-def instantiate_toolbox(
-    labels_names, selected_labeliser, shortcuts_displays_helpers, label_on_click
-):
+def instantiate_toolbox(labels_names, selected_labeliser, shortcuts_displays_helpers, label_on_click):
     """
     Instantiate the toolbox containing the buttons of the different labels and the eraser.
     """
@@ -200,6 +202,7 @@ def instantiate_toolbox(
         button.add_class("label_button")
         button = add_shortcut_to(button, label, shortcuts_displays_helpers)
         labels_buttons.append(button)
+
 
     # Instantiate eraser
     eraser_button = Button(icon="eraser", layout=Layout(width="40px"))
@@ -228,6 +231,7 @@ def instantiate_document(
     selected_labeliser,
     shortcuts_displays_helpers,
     label_on_click,
+    label_on_toggle
 ):
     """
     Instantiate the document display.
@@ -268,6 +272,15 @@ def instantiate_document(
     toolbox_display, labels_buttons = instantiate_toolbox(
         labels_names, selected_labeliser, shortcuts_displays_helpers, label_on_click
     )
+    # Instantiate click to highlight tokens
+    toggle_button = Button(icon="check", layout=Layout(width="40px"))
+    toggle_button.on_click(
+        functools.partial(label_on_toggle, button_index=len(labels_names) + 1)
+    )
+
+    toggle_button.add_class("label_button")
+    toggle_button.add_class("check_color")
+
     divider = HTML("<hr style='margin-top:0.5em;margin-bottom:0.5em'>")
     hbox = HBox(
         buttons_display,
@@ -277,11 +290,11 @@ def instantiate_document(
         ),
     )
     document_display = VBox(
-        [toolbox_display, divider, hbox],
+        [HBox([toolbox_display, toggle_button]), divider, hbox],
     )
     document_display.add_class("card")
 
-    return document_display, buttons, labels_buttons
+    return document_display, buttons, labels_buttons, toggle_button
 
 
 def instantiate_chunks_area(labels_names):
@@ -537,6 +550,15 @@ def define_custom_styles(labels_colors, char_params):
         text_color_selected="white",
         background_color_selected=config.ERASER_COLOR,
         background_color=config.ERASER_COLOR,
+    )
+
+    css_colors += utils.text_parser(
+        "css/color.css",
+        name="check",
+        text_color="white",
+        text_color_selected="white",
+        background_color_selected=config.CHECK_COLOR,
+        background_color=config.CHECK_COLOR,
     )
 
     # Define global style

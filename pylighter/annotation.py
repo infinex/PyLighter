@@ -2,12 +2,14 @@ import os
 import threading
 
 import pandas as pd
+import spacy
 
 from pylighter import config
 from pylighter import display as display_helper
 from pylighter import utils
 from pylighter.chunk_models import Chunk, Chunks
 from pylighter.shortcut_helper import shortcut_helper
+from pylighter.tokenizer import SpacyTokenizer
 
 
 class Annotation:
@@ -93,6 +95,8 @@ class Annotation:
         self.start_index = start_index
         self.current_index = start_index
         self.corpus = corpus
+        self.tk = SpacyTokenizer()
+        self.toggle_click_annotation = False
         self.labels = self._init_labels(labels)
         self.save_path = save_path
         self.char_params = char_params
@@ -173,6 +177,8 @@ class Annotation:
 
         # Init variables specific to the current document
         self.document = self.corpus[self.current_index]
+        _, token_spans_lookup = self.tk.word_tokenizer(self.document)
+        self.token_spans_lookup = token_spans_lookup
         self.chunks = Chunks(labels=self.labels[self.current_index])
         self.selected_labeliser = self.labels_names[0]
         self.label_start_index = None
@@ -207,6 +213,7 @@ class Annotation:
         display_helper.display_core(self.preloaded_displays.current["core_display"])
         self.char_buttons = self.preloaded_displays.current["char_buttons"]
         self.labels_buttons = self.preloaded_displays.current["labels_buttons"]
+        self.toggle_button = self.preloaded_displays.current["toggle_button"]
 
         # Display current chunks
         for chunk in self.chunks.chunks:
@@ -238,6 +245,10 @@ class Annotation:
         # Preload missing displays
         self._async_load(self.preloaded_displays.next, 1)
         self._async_load(self.preloaded_displays.previous, -1)
+
+        # sync ui with data
+        self._sync_toggle_labeliser()
+
 
     def _async_load(self, preloaded, direction):
         """
@@ -276,6 +287,7 @@ class Annotation:
                     "selected_labeliser": self.labels_names[0],
                     "shortcuts_displays_helpers": self.shortcuts_displays_helpers,
                     "label_on_click": self._select_new_labeliser,
+                    "label_on_toggle": self._toggle_labeliser,
                 },
             )
             thread.start()
@@ -284,6 +296,20 @@ class Annotation:
     # --------------------------------------------
     # On click functions
     # --------------------------------------------
+
+    def _sync_toggle_labeliser(self):
+        description = (self.toggle_button.description or self.toggle_button.icon)
+        if not self.toggle_click_annotation:
+            self.toggle_button.add_class(f"{description}_color_selected")
+        else:
+            self.toggle_button.remove_class(f"{description}_color_selected")
+
+
+    def _toggle_labeliser(self, button, button_index):
+        description = (self.toggle_button.description or self.toggle_button.icon)
+        self.toggle_button.remove_class(f"{description}_color_selected")
+        self.toggle_click_annotation = not self.toggle_click_annotation
+        self._sync_toggle_labeliser()
 
     def _select_new_labeliser(self, button, button_index):
         # Remove selected class from all buttons
@@ -311,27 +337,40 @@ class Annotation:
 
     def _labelise(self, button, char_index):
         # Selecting the first part and create chunks accordingly
-        if self.label_start_index is None:
-            chunk = Chunk(
-                start_index=char_index,
-                end_index=char_index,
-                label=self.selected_labeliser,
-            )
-            self.label_start_index = char_index
+        if not self.toggle_click_annotation:
+            if self.label_start_index is None:
+                chunk = Chunk(
+                    start_index=char_index,
+                    end_index=char_index,
+                    label=self.selected_labeliser,
+                )
+                self.label_start_index = char_index
 
-        # Selecting the second part and create chunks accordingly
+            # Selecting the second part and create chunks accordingly
+            else:
+                start_index = self.label_start_index
+                end_index = char_index
+                if end_index < start_index:
+                    start_index, end_index = end_index, start_index
+
+                chunk = Chunk(
+                    start_index=start_index,
+                    end_index=end_index,
+                    label=self.selected_labeliser,
+                )
+                self.label_start_index = None
         else:
-            start_index = self.label_start_index
-            end_index = char_index
-            if end_index < start_index:
-                start_index, end_index = end_index, start_index
+            start_end_index = self.token_spans_lookup.get(char_index)
+            if start_end_index:
+                chunk = Chunk(
+                    start_index=start_end_index[0],
+                    end_index=start_end_index[1] - 1,
+                    label=self.selected_labeliser,
+                )
+                self.label_start_index = None
+            else:
+                return
 
-            chunk = Chunk(
-                start_index=start_index,
-                end_index=end_index,
-                label=self.selected_labeliser,
-            )
-            self.label_start_index = None
 
         # Update chunks with the new chunk
         chunk_text = self.document[chunk.start_index : chunk.end_index + 1]  # noqa

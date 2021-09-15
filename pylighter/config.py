@@ -32,6 +32,8 @@ DEFAULT_COLORS = [
 ]
 
 ERASER_COLOR = "#ED6855"
+CHECK_COLOR = "#55eded"
+
 CHAR_PARAMS = {
     "min_width_between_chars": "4px",
     "width_white_space": "10px",
@@ -64,24 +66,24 @@ SHORTCUT_CANCEL_SHORTCUTS = Shortcut(
 SHORTCUTS = [
     Shortcut(
         name="next",
-        key="Dead",
-        code="KeyN",
+        key="j",
+        code="KeyJ",
         shift_key=False,
         alt_key=True,
         ctrl_key=False,
     ),
     Shortcut(
         name="previous",
-        key="π",
-        code="KeyP",
+        key="k",
+        code="KeyK",
         shift_key=False,
         alt_key=True,
         ctrl_key=False,
     ),
     Shortcut(
-        name="skip", key="Ò", code="KeyS", shift_key=False, alt_key=True, ctrl_key=False
+        name="skip", key="s", code="KeyS", shift_key=False, alt_key=True, ctrl_key=True
     ),
     Shortcut(
-        name="save", key="∑", code="KeyS", shift_key=True, alt_key=True, ctrl_key=False
+        name="save", key="S", code="KeyS", shift_key=True, alt_key=True, ctrl_key=False
     ),
 ]
